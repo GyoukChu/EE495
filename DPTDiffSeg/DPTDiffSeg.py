@@ -34,9 +34,8 @@ class DPTBlock(nn.Module):
             out = torch.transpose(out, dim0=0, dim1=2) # out shape: (T, B, F)
         return out
 
-''' Trials
-1. conv2d vs. avg. pooling
-2. latent dimension /= 4 by "STABLE DIFFUSION" paper.
+''' 
+Trials: conv2d vs. avg. pooling
 '''
 class SSDPT(nn.Module):
     def __init__(self, t_len, f_len, batch_first=True):
@@ -72,11 +71,8 @@ class SSDPT(nn.Module):
             out = torch.transpose(out, dim0=0, dim1=2) # out shape: (T, 1, B, F) 
         return out.squeeze(1)
 
-
 ''' FINAL ARCHITECTURE '''
-''' Trials
-1. Different seg: masking vs. mixup vs. nothing
-'''
+
 class DPTDiffSeg(nn.Module):
     def __init__(self, t_len, f_len, batch_first=True):
         super(DPTDiffSeg, self).__init__()
@@ -87,7 +83,7 @@ class DPTDiffSeg(nn.Module):
         # 1. Pass through SSDPT
         self.SSDPT = SSDPT(t_len=self.t_len, f_len=self.f_len, batch_first=self.batch_first)
 
-        # 2. Latent Diffusion -> Loss1, 들어가기 전 unsqueeze(1) 필요.
+        # 2. Latent Diffusion -> Loss1, unsqueeze(1) Needed.
         self.model = Unet(
             dim = 64,
             dim_mults = (1, 2, 4, 8),
@@ -97,7 +93,7 @@ class DPTDiffSeg(nn.Module):
             self.model,
             image_size = (self.f_len//4, self.t_len//4), # note that h, w must be divisible by 2
             timesteps = 1000,   # number of steps
-            sampling_timesteps = 1000//5, # number of sampling steps -> DDIM
+            sampling_timesteps = 1000//5, # number of sampling steps -> DDIM if s_t < t
             objective = 'pred_v', # See : https://arxiv.org/abs/2202.00512
             beta_schedule = 'cosine'
         )

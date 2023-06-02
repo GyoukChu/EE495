@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import math
 
+''' TODO: Sub-Cluster AdaCos '''
+
 class AdaCos(nn.Module):
     def __init__(self, num_features, num_classes, m=0.50):
         super(AdaCos, self).__init__()
@@ -30,7 +32,6 @@ class AdaCos(nn.Module):
         with torch.no_grad():
             B_avg = torch.where(one_hot < 1, torch.exp(self.s * logits), torch.zeros_like(logits))
             B_avg = torch.sum(B_avg) / input.size(0)
-            # print(B_avg)
             theta_med = torch.median(theta[one_hot == 1])
             self.s = torch.log(B_avg) / torch.cos(torch.min(math.pi/4 * torch.ones_like(theta_med), theta_med))
         output = self.s * logits
