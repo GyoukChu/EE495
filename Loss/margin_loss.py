@@ -4,7 +4,46 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import math
 
-''' TODO: Sub-Cluster AdaCos '''
+''' TODO: Make sure this Sub-Cluster AdaCos code works '''
+class SubClusterAdaCos(nn.Module):
+    def __init__(self, num_features, num_classes, K=3, m=0.50):
+        super(AdaCos, self).__init__()
+        self.num_features = num_features
+        self.n_classes = num_classes
+        self.s = math.sqrt(2) * math.log(num_classes - 1)
+        self.m = m
+        self.K = K
+        self.W = Parameter(torch.FloatTensor(num_classes*self.K, num_features))
+        nn.init.xavier_uniform_(self.W)
+
+    def forward(self, input, label=None):
+        # normalize features
+        x = F.normalize(input)
+        # normalize weights
+        W = F.normalize(self.W)
+        # dot product
+        logits = F.linear(x, W)
+        if label is None:
+            return logits
+        
+        if self.K > 1:
+            logits = torch.reshape(logits, (-1, self.n_classes, self.K))
+            logits, _ = torch.max(logits, axis=2)
+
+        # feature re-scale
+        theta = torch.acos(torch.clamp(logits, -1.0 + 1e-7, 1.0 - 1e-7))
+        one_hot = torch.zeros_like(logits)
+        one_hot.scatter_(1, label.view(-1, 1).long(), 1)
+        with torch.no_grad():
+            B_avg = torch.where(one_hot < 1, torch.exp(self.s * logits), torch.zeros_like(logits))
+            B_avg = torch.sum(B_avg) / input.size(0)
+            theta_med = torch.median(theta[one_hot == 1])
+            self.s = torch.log(B_avg) / torch.cos(torch.min(math.pi/4 * torch.ones_like(theta_med), theta_med))
+        output = self.s * logits
+
+        return output
+
+
 
 class AdaCos(nn.Module):
     def __init__(self, num_features, num_classes, m=0.50):
